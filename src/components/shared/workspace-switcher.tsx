@@ -44,17 +44,11 @@ export function WorkspaceSwitcher({ currentWorkspace, userWorkspaces }: Workspac
           className="flex w-full items-center justify-between p-2.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition cursor-pointer font-satoshi shadow-xs group"
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="h-8 w-8 rounded-md bg-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-sm flex-shrink-0">
-              {currentWorkspace.name.charAt(0).toUpperCase() || 'W'}
-            </div>
-            <div className="min-w-0 text-left">
-              <span className="text-xs font-bold text-gray-900 block truncate leading-tight group-hover:text-indigo-600 transition-colors">
-                {currentWorkspace.name}
-              </span>
-              <span className="text-[10px] text-indigo-600 font-mono mt-0.5 block truncate">
-                /{currentWorkspace.slug}
-              </span>
-            </div>
+            <img
+              src="/img/logo.png"
+              alt="Workspace Logo"
+              className="h-10 w-auto object-contain flex-shrink-0"
+            />
           </div>
 
           <div className="flex items-center gap-1.5 flex-shrink-0 pl-1">

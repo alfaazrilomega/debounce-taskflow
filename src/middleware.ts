@@ -5,12 +5,22 @@ export async function middleware(request: NextRequest) {
   // Update user's auth session and get authenticated user
   const { supabaseResponse, user } = await updateSession(request)
 
-  // Protect all /dashboard routes (including /[workspaceSlug]/dashboard)
-  if (request.nextUrl.pathname.includes('/dashboard')) {
-    // Zero Trust: Enforce absolute verification from Supabase Auth Server
+  const { pathname } = request.nextUrl
+
+  const isAuthRoute = pathname === '/login' || pathname === '/signup' || pathname.startsWith('/auth')
+  const isDashboardRoute = pathname.includes('/dashboard')
+  const isRootRoute = pathname === '/'
+
+  // Redirect unauthenticated users trying to access root or dashboard to /login
+  if (!isAuthRoute && (isDashboardRoute || isRootRoute)) {
     if (!user) {
-       return NextResponse.redirect(new URL('/login', request.url))
+      return NextResponse.redirect(new URL('/login', request.url))
     }
+  }
+
+  // Redirect authenticated users trying to access login/signup to dashboard
+  if (user && (pathname === '/login' || pathname === '/signup')) {
+    return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
   return supabaseResponse
