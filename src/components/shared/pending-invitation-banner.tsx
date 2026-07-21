@@ -42,6 +42,7 @@ export function PendingInvitationBanner({ invitations }: PendingInvitationBanner
       setLoadingId(id)
       await rejectWorkspaceInvitation(id)
       setItems(prev => prev.filter(item => item.id !== id))
+      window.location.href = '/dashboard'
     } catch (err: any) {
       alert(err.message || 'Failed to decline invitation')
     } finally {

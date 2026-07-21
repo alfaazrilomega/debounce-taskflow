@@ -28,6 +28,29 @@ export async function getUserWorkspaces() {
     }
   }
 
+  // Ensure current user ALWAYS has their own personal workspace
+  let ownedWorkspace = await prisma.hRWorkspace.findFirst({
+    where: { owner_id: user.id }
+  })
+
+  if (!ownedWorkspace) {
+    ownedWorkspace = await prisma.hRWorkspace.create({
+      data: {
+        name: `${user.email?.split('@')[0] || 'My'}'s Workspace`,
+        slug: `ws-${user.id.slice(0, 8)}`,
+        owner_id: user.id,
+        members: {
+          create: {
+            user_id: user.id,
+            role: 'owner',
+            status: 'active'
+          }
+        }
+      }
+    })
+  }
+
+  // ONLY return workspaces where current user is OWNER or ACTIVE member!
   const workspaces = await prisma.hRWorkspace.findMany({
     where: {
       OR: [
@@ -62,7 +85,7 @@ export async function getWorkspaceData(targetSlug?: string) {
   const user = await getUser()
   const userEmail = user.email ? user.email.toLowerCase() : ''
 
-  // Sync any invited member rows matching user.email to user.id
+  // 1. Sync any invited member rows matching user.email to user.id
   if (userEmail) {
     try {
       await prisma.$executeRaw`
@@ -75,42 +98,18 @@ export async function getWorkspaceData(targetSlug?: string) {
     }
   }
 
-  let workspace = null
-
-  if (targetSlug) {
-    workspace = await prisma.hRWorkspace.findUnique({
-      where: { slug: targetSlug },
-      include: {
-        members: {
-          include: {
-            user: true
-          }
-        }
+  // 2. GUARANTEE that current user ALWAYS has their own personal workspace
+  let ownedWorkspace = await prisma.hRWorkspace.findFirst({
+    where: { owner_id: user.id },
+    include: {
+      members: {
+        include: { user: true }
       }
-    })
-  }
+    }
+  })
 
-  // Fallback to default user workspace if not found by slug
-  if (!workspace) {
-    workspace = await prisma.hRWorkspace.findFirst({
-      where: {
-        OR: [
-          { owner_id: user.id },
-          { members: { some: { OR: [{ user_id: user.id }, { invited_email: userEmail }] } } }
-        ]
-      },
-      include: {
-        members: {
-          include: {
-            user: true
-          }
-        }
-      }
-    })
-  }
-
-  if (!workspace) {
-    workspace = await prisma.hRWorkspace.create({
+  if (!ownedWorkspace) {
+    ownedWorkspace = await prisma.hRWorkspace.create({
       data: {
         name: `${user.email?.split('@')[0] || 'My'}'s Workspace`,
         slug: `ws-${user.id.slice(0, 8)}`,
@@ -125,12 +124,39 @@ export async function getWorkspaceData(targetSlug?: string) {
       },
       include: {
         members: {
-          include: {
-            user: true
-          }
+          include: { user: true }
         }
       }
     })
+  }
+
+  let workspace = null
+
+  if (targetSlug) {
+    workspace = await prisma.hRWorkspace.findUnique({
+      where: { slug: targetSlug },
+      include: {
+        members: {
+          include: { user: true }
+        }
+      }
+    })
+  }
+
+  // 3. Strict Validation: User can ONLY view target workspace if they are OWNER or ACTIVE member!
+  if (workspace) {
+    const isOwner = workspace.owner_id === user.id
+    const isActiveMember = workspace.members.some(
+      m => (m.user_id === user.id || (m.invited_email && m.invited_email.toLowerCase() === userEmail)) && m.status === 'active'
+    )
+
+    // If user is neither owner nor active member (e.g. pending invitation or unauthorized), fallback to owned workspace!
+    if (!isOwner && !isActiveMember) {
+      workspace = ownedWorkspace
+    }
+  } else {
+    // Default workspace is ALWAYS user's owned workspace
+    workspace = ownedWorkspace
   }
 
   // Determine current user's role in THIS SPECIFIC WORKSPACE ('owner' | 'member')
