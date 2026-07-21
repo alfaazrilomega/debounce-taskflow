@@ -32,7 +32,7 @@ export async function getUserWorkspaces() {
     where: {
       OR: [
         { owner_id: user.id },
-        { members: { some: { OR: [{ user_id: user.id }, { invited_email: userEmail }] } } }
+        { members: { some: { status: 'active', OR: [{ user_id: user.id }, { invited_email: userEmail }] } } }
       ]
     },
     include: {
@@ -291,17 +291,123 @@ export async function inviteWorkspaceMember(email: string, role: string = 'membe
     }
   })
 
-  // 4. Create member invitation in database
+  // 4. Create member invitation in database with initial status PENDING
   const member = await prisma.hRWorkspaceMember.create({
     data: {
       workspace_id: workspace.id,
       user_id: targetUserId,
       role: 'member',
       invited_email: cleanEmail,
-      status: 'active'
+      status: 'pending'
     }
   })
 
   revalidatePath('/', 'layout')
   return { success: true, member }
+}
+
+export async function acceptWorkspaceInvitation(invitationId: string) {
+  const user = await getUser()
+  const userEmail = user.email ? user.email.toLowerCase() : ''
+
+  const member = await prisma.hRWorkspaceMember.findFirst({
+    where: {
+      id: invitationId,
+      OR: [
+        { user_id: user.id },
+        { invited_email: userEmail }
+      ]
+    },
+    include: {
+      workspace: true
+    }
+  })
+
+  if (!member) throw new Error('Invitation not found or unauthorized')
+
+  await prisma.hRWorkspaceMember.update({
+    where: { id: member.id },
+    data: {
+      status: 'active',
+      user_id: user.id
+    }
+  })
+
+  revalidatePath('/', 'layout')
+  return { success: true, workspaceSlug: member.workspace.slug }
+}
+
+export async function rejectWorkspaceInvitation(invitationId: string) {
+  const user = await getUser()
+  const userEmail = user.email ? user.email.toLowerCase() : ''
+
+  const member = await prisma.hRWorkspaceMember.findFirst({
+    where: {
+      id: invitationId,
+      OR: [
+        { user_id: user.id },
+        { invited_email: userEmail }
+      ]
+    }
+  })
+
+  if (!member) throw new Error('Invitation not found or unauthorized')
+
+  await prisma.hRWorkspaceMember.delete({
+    where: { id: member.id }
+  })
+
+  revalidatePath('/', 'layout')
+  return { success: true }
+}
+
+export async function getPendingUserInvitations() {
+  const user = await getUser()
+  const userEmail = user.email ? user.email.toLowerCase() : ''
+
+  if (!userEmail) return []
+
+  const pendingMembers = await prisma.hRWorkspaceMember.findMany({
+    where: {
+      status: 'pending',
+      OR: [
+        { user_id: user.id },
+        { invited_email: userEmail }
+      ]
+    },
+    include: {
+      workspace: {
+        include: {
+          members: {
+            where: { role: 'owner' },
+            include: { user: true }
+          }
+        }
+      }
+    }
+  })
+
+  // Query auth.users emails for workspace owners
+  const ownerUserIds = pendingMembers.map(m => m.workspace.owner_id)
+  let emailMap = new Map<string, string>()
+
+  if (ownerUserIds.length > 0) {
+    try {
+      const authUsers: Array<{ id: string; email: string }> = await prisma.$queryRaw`
+        SELECT id::text, email::text FROM auth.users WHERE id = ANY(${ownerUserIds}::uuid[])
+      `
+      emailMap = new Map(authUsers.map(u => [u.id, u.email]))
+    } catch (err) {
+      console.error('Error fetching owner emails:', err)
+    }
+  }
+
+  return pendingMembers.map(m => ({
+    id: m.id,
+    workspaceName: m.workspace.name,
+    workspaceSlug: m.workspace.slug,
+    ownerEmail: emailMap.get(m.workspace.owner_id) || m.workspace.members[0]?.invited_email || 'Workspace Owner',
+    role: m.role,
+    created_at: m.joined_at
+  }))
 }

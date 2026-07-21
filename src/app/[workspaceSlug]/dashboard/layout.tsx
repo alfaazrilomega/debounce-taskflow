@@ -1,9 +1,10 @@
 import { ReactNode } from 'react'
 import Link from 'next/link'
 import { logout } from '@/actions/auth'
-import { getWorkspaceData, getUserWorkspaces } from '@/actions/workspace'
+import { getWorkspaceData, getUserWorkspaces, getPendingUserInvitations } from '@/actions/workspace'
 import { getUserSessionData } from '@/actions/overview'
 import { WorkspaceSwitcher } from '@/components/shared/workspace-switcher'
+import { PendingInvitationBanner } from '@/components/shared/pending-invitation-banner'
 import {
   RiHome2Line,
   RiPieChartLine,
@@ -157,6 +158,7 @@ async function TopNavHeader({ workspaceSlug }: { workspaceSlug: string }) {
 
 export default async function DashboardLayout({ children, params }: DashboardLayoutProps) {
   const { workspaceSlug } = await params
+  const pendingInvitations = await getPendingUserInvitations()
 
   return (
     <div className="grid h-screen w-full md:grid-cols-[260px_1fr] overflow-hidden bg-gray-50 text-gray-900 font-satoshi">
@@ -169,6 +171,7 @@ export default async function DashboardLayout({ children, params }: DashboardLay
           <TopNavHeader workspaceSlug={workspaceSlug} />
         </header>
         <div className="flex-1 px-8 py-8 mx-auto w-full max-w-[1050px]">
+          <PendingInvitationBanner invitations={pendingInvitations} />
           {children}
         </div>
       </main>
