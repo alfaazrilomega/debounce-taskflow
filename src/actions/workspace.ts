@@ -34,10 +34,18 @@ export async function getUserWorkspaces() {
   })
 
   if (!ownedWorkspace) {
+    let baseSlug = `ws-${user.id.slice(0, 8)}`
+    let slug = baseSlug
+    let counter = 1
+    while (await prisma.hRWorkspace.findUnique({ where: { slug } })) {
+      slug = `${baseSlug}-${counter}`
+      counter++
+    }
+
     ownedWorkspace = await prisma.hRWorkspace.create({
       data: {
         name: `${user.email?.split('@')[0] || 'My'}'s Workspace`,
-        slug: `ws-${user.id.slice(0, 8)}`,
+        slug,
         owner_id: user.id,
         members: {
           create: {
@@ -109,10 +117,18 @@ export async function getWorkspaceData(targetSlug?: string) {
   })
 
   if (!ownedWorkspace) {
+    let baseSlug = `ws-${user.id.slice(0, 8)}`
+    let slug = baseSlug
+    let counter = 1
+    while (await prisma.hRWorkspace.findUnique({ where: { slug } })) {
+      slug = `${baseSlug}-${counter}`
+      counter++
+    }
+
     ownedWorkspace = await prisma.hRWorkspace.create({
       data: {
         name: `${user.email?.split('@')[0] || 'My'}'s Workspace`,
-        slug: `ws-${user.id.slice(0, 8)}`,
+        slug,
         owner_id: user.id,
         members: {
           create: {
