@@ -225,7 +225,7 @@ export async function createTask(formData: FormData) {
 
   // 1b. Update priority directly in DB
   if (priority) {
-    await prisma.$executeRaw`UPDATE public.hr_tasks SET priority = ${priority}::public.hr_task_priority WHERE id = ${newTask.id}::uuid`
+    await prisma.$executeRaw`UPDATE public.hr_tasks SET priority = ${priority} WHERE id = ${newTask.id}::uuid`
   }
 
   // 2. Associate Multiple Tags if selected
@@ -306,10 +306,10 @@ export async function updateTaskStatus(taskId: string, status: 'todo' | 'in_prog
   revalidatePath('/dashboard')
 }
 
-export async function updateTaskPriority(taskId: string, priority: 'low' | 'medium' | 'high') {
+export async function updateTaskPriority(taskId: string, priority: string) {
   const user = await getUser()
 
-  await prisma.$executeRaw`UPDATE public.hr_tasks SET priority = ${priority}::public.hr_task_priority WHERE id = ${taskId}::uuid AND user_id = ${user.id}::uuid`
+  await prisma.$executeRaw`UPDATE public.hr_tasks SET priority = ${priority} WHERE id = ${taskId}::uuid AND user_id = ${user.id}::uuid`
 
   revalidatePath('/dashboard')
 }

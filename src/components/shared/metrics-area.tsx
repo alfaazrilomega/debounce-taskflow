@@ -9,7 +9,7 @@ import { RiCheckboxCircleLine, RiFileList3Line, RiTeamLine, RiArrowUpLine } from
 
 interface MetricsAreaProps {
   tasks: Array<{
-    status: 'todo' | 'in_progress' | 'done'
+    status: string
     created_at: Date
   }>
 }

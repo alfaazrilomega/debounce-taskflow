@@ -42,6 +42,16 @@ export async function getUserWorkspaces() {
       counter++
     }
 
+    // ENSURE PROFILE EXISTS BEFORE CREATING WORKSPACE TO FIX FK CONSTRAINT
+    await prisma.profile.upsert({
+      where: { id: user.id },
+      update: {},
+      create: {
+        id: user.id,
+        full_name: user.email?.split('@')[0] || 'Unknown User'
+      }
+    })
+
     ownedWorkspace = await prisma.hRWorkspace.create({
       data: {
         name: `${user.email?.split('@')[0] || 'My'}'s Workspace`,
@@ -124,6 +134,16 @@ export async function getWorkspaceData(targetSlug?: string) {
       slug = `${baseSlug}-${counter}`
       counter++
     }
+
+    // ENSURE PROFILE EXISTS BEFORE CREATING WORKSPACE TO FIX FK CONSTRAINT
+    await prisma.profile.upsert({
+      where: { id: user.id },
+      update: {},
+      create: {
+        id: user.id,
+        full_name: user.email?.split('@')[0] || 'Unknown User'
+      }
+    })
 
     ownedWorkspace = await prisma.hRWorkspace.create({
       data: {

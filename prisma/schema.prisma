@@ -54,25 +54,13 @@ model HRWorkspaceMember {
   @@map("hr_workspace_members")
 }
 
-enum HRTaskStatus {
-  todo
-  in_progress
-  done
-}
-
-enum HRTaskPriority {
-  low
-  medium
-  high
-}
-
 model Task {
   id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id     String         @db.Uuid
   title       String
   description String?
-  status      HRTaskStatus   @default(todo)
-  priority    HRTaskPriority @default(medium)
+  status      String         @default("todo")
+  priority    String         @default("medium")
   position    Int            @default(0)
   due_date    DateTime?
   created_at  DateTime       @default(now())
@@ -150,17 +138,11 @@ model Notification {
   @@map("hr_notifications")
 }
 
-enum LogAction {
-  created
-  updated
-  deleted
-}
-
 model ActivityLog {
   id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   task_id        String?   @db.Uuid
   user_id        String    @db.Uuid
-  action         LogAction
+  action         String
   state_snapshot Json?
   created_at     DateTime  @default(now())
 

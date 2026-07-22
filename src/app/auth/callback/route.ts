@@ -6,15 +6,22 @@ export async function GET(request: Request) {
   const code = searchParams.get('code')
   const token_hash = searchParams.get('token_hash')
   const type = searchParams.get('type') as any
-  const next = searchParams.get('next') ?? '/dashboard'
+  const rawNext = searchParams.get('next') ?? '/dashboard'
   const error = searchParams.get('error')
   const error_code = searchParams.get('error_code')
   const error_description = searchParams.get('error_description')
 
+  // Dynamically resolve request origin considering reverse proxies (Nginx/Vercel/PM2)
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host')
+  const protocol = request.headers.get('x-forwarded-proto') || 'http'
+  const redirectOrigin = host ? `${protocol}://${host}` : origin
+
+  const targetPath = rawNext.startsWith('/') ? rawNext : `/${rawNext}`
+
   if (error || error_code) {
-    console.error('Auth callback error:', error, error_description)
-    const errorMsg = encodeURIComponent(error_description || 'Email confirmation link expired or invalid.')
-    return NextResponse.redirect(`${origin}/login?error=${errorMsg}`)
+    console.error('Auth callback error:', error, error_code, error_description)
+    const errorMsg = encodeURIComponent(error_description || 'Link konfirmasi email tidak valid atau sudah kadaluarsa.')
+    return NextResponse.redirect(`${redirectOrigin}/login?error=${errorMsg}`)
   }
 
   const supabase = await createClient()
@@ -22,11 +29,11 @@ export async function GET(request: Request) {
   if (code) {
     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
     if (!exchangeError) {
-      return NextResponse.redirect(`${origin}${next}`)
+      return NextResponse.redirect(`${redirectOrigin}${targetPath}`)
     } else {
       console.error('Exchange code error:', exchangeError.message)
       const errorMsg = encodeURIComponent(exchangeError.message)
-      return NextResponse.redirect(`${origin}/login?error=${errorMsg}`)
+      return NextResponse.redirect(`${redirectOrigin}/login?error=${errorMsg}`)
     }
   }
 
@@ -36,14 +43,15 @@ export async function GET(request: Request) {
       type
     })
     if (!verifyError) {
-      return NextResponse.redirect(`${origin}${next}`)
+      return NextResponse.redirect(`${redirectOrigin}${targetPath}`)
     } else {
       console.error('Verify OTP error:', verifyError.message)
       const errorMsg = encodeURIComponent(verifyError.message)
-      return NextResponse.redirect(`${origin}/login?error=${errorMsg}`)
+      return NextResponse.redirect(`${redirectOrigin}/login?error=${errorMsg}`)
     }
   }
 
   // Fallback redirect if no code or token_hash was provided
-  return NextResponse.redirect(`${origin}/login?confirmed=true`)
+  return NextResponse.redirect(`${redirectOrigin}/dashboard`)
 }
+
